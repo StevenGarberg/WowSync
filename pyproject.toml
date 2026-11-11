@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wowsync-lan"
+version = "0.1.0"
+description = "Database-free, review-first World of Warcraft settings sync over LAN and Tailscale"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = []
+
+[project.scripts]
+wowsync = "wowsync.server:main"
+
+[tool.setuptools.package-data]
+wowsync = ["static/*"]

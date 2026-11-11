@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+.wowsync/
+*.log
+dist/
+build/
+*.egg-info/
+.env*
+!.env.example
+WTF/
+Interface/
+*.zip
+*.bak
