@@ -130,7 +130,8 @@ def game_running() -> bool:
                    for p in result.stdout.splitlines())
     result = subprocess.run(['tasklist', '/FO', 'CSV', '/NH'], capture_output=True, text=True, check=True,
                             creationflags=subprocess.CREATE_NO_WINDOW)
-    return bool(re.search(r'^"Wow[^"\r\n]*\.exe"', result.stdout, re.I | re.M))
+    # The portable receiver itself is named WoWSync.exe; it is not a game client.
+    return bool(re.search(r'^"Wow(?!Sync)[^"\r\n]*\.exe"', result.stdout, re.I | re.M))
 
 
 class Store:

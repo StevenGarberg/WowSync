@@ -3,12 +3,13 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 from http.server import ThreadingHTTPServer
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from wowsync.core import Store, config_values, safe_path, digest, protected
+from wowsync.core import Store, config_values, safe_path, digest, protected, game_running
 from wowsync.server import make_handler, peer_request
 from wowsync.pull import pull, selection
 
@@ -37,6 +38,15 @@ class Fixture(unittest.TestCase):
 
 
 class SyncTests(Fixture):
+    def test_portable_receiver_is_not_a_game_process(self):
+        with patch('wowsync.core.os.name', 'nt'), patch('wowsync.core.subprocess.CREATE_NO_WINDOW', 0, create=True), patch('wowsync.core.subprocess.run') as run:
+            run.return_value=SimpleNamespace(stdout='"WoWSync.exe","123","Console","1","12 K"\n')
+            own_only=game_running()
+            for name in ('Wow.exe','WowClassic.exe','WowForever.exe','WowB.exe'):
+                run.return_value=SimpleNamespace(stdout=f'"{name}","456","Console","1","100 K"\n')
+                self.assertTrue(game_running())
+        self.assertFalse(own_only)
+
     def test_prefer_source_keeps_machine_local_config_unselected(self):
         entries = [{'id':s, 'status':s, 'selectable':s != 'private'} for s in
                    ('incoming', 'conflict', 'local-only', 'machine-local', 'private', 'same', 'manual-review')]
