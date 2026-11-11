@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 
 from wowsync.core import Store, config_values, safe_path, digest, protected
 from wowsync.server import make_handler, peer_request
+from wowsync.pull import pull, selection
 
 
 class Fixture(unittest.TestCase):
@@ -36,6 +37,11 @@ class Fixture(unittest.TestCase):
 
 
 class SyncTests(Fixture):
+    def test_prefer_source_keeps_machine_local_config_unselected(self):
+        entries = [{'id':s, 'status':s, 'selectable':s != 'private'} for s in
+                   ('incoming', 'conflict', 'local-only', 'machine-local', 'private', 'same', 'manual-review')]
+        self.assertEqual(selection(entries), ['incoming'])
+        self.assertEqual(selection(entries, True), ['incoming','conflict','local-only'])
     def test_new_file_sync_and_restore(self):
         self.put(self.b, 'Interface/AddOns/Test/Test.lua', 'print("hello")')
         plan = self.plan()
@@ -254,6 +260,20 @@ class HttpTests(Fixture):
             result = self.request('/api/apply', {'plan':plan['id'], 'selected':['WTF/a.lua']})
             self.request('/api/restore', {'backup':result['backup']})
         self.assertFalse((self.a.profile('_retail_') / 'WTF/a.lua').exists())
+
+    def test_command_line_pull_preview_then_source_preference(self):
+        self.put(self.a, 'WTF/a.lua', 'destination')
+        self.put(self.b, 'WTF/a.lua', 'primary')
+        source = {'id':'primary', 'url':self.peer_url, 'token':self.b.settings['token']}
+        with patch('wowsync.pull.game_running', return_value=False):
+            preview = pull(self.a, source, '_retail_', prefer_source=True)
+            self.assertFalse(preview['applied'])
+            self.assertEqual(preview['selected'],1)
+            self.assertEqual(self.a.read('_retail_', 'WTF/a.lua'), b'destination')
+            result = pull(self.a, source, '_retail_', apply=True, prefer_source=True)
+        self.assertTrue(result['applied'])
+        self.assertIn('backup',result)
+        self.assertEqual(self.a.read('_retail_', 'WTF/a.lua'), b'primary')
 
     def test_pairing_token_rotation_revokes_reads(self):
         peer = {'url':self.url, 'token':self.a.settings['token']}

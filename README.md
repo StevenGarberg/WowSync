@@ -30,6 +30,14 @@ Or use the launcher:
 .\scripts\start.ps1
 ```
 
+### Portable Windows receiver
+
+The native receiver UI can run from source with `python -m wowsync.desktop`. To build a portable executable that needs no Python installation on the receiving computer, run `scripts/build-windows.ps1` on Windows. It creates an isolated build environment and places `WoWSync.exe` outside the repository.
+
+The receiver compares first, displays file/config rows, supports individual selection and text deltas, and offers **Prefer source for addon / UI conflicts** for first-time migration from a tuned primary PC. Machine-local config keys stay unselected by default. It verifies selected results after writing and records `%LOCALAPPDATA%\WoWSync\last-pull.json` with the backup ID. Close the browser service on the receiving machine before using the native receiver so only one process owns its private state.
+
+An optional private `connection.json` beside the executable can prefill `install`, `source`, `profile`, `token`, and `prefer_source`. **This file contains credentials; never commit or publish it.** Distribute a configured copy only to the intended trusted receiver. It is separate from the executable and is excluded by `.gitignore`.
+
 The terminal prints a private local management URL. Keep the app running while using it. The default listener is loopback only. Nothing is sent to GitHub or any online service.
 
 For access from other machines on your LAN or tailnet:
@@ -50,6 +58,16 @@ You can also pass `-Listen 0.0.0.0` to `scripts/start.ps1`. If Windows Firewall 
 6. To pull in the other direction, pair the receiving computer on the other computer too. Repeat for additional machines.
 
 Both peers must have the same `_version_` directory name. The parent installation paths may differ. Account/realm/character paths are copied literally; confirm they match on both computers before syncing. If the source is offline, busy, or running WoW, retry when it is ready. On first pairing, explicitly choose a winner for existing differences.
+
+### Pull from a primary PC in PowerShell
+
+On the receiving computer, put the primary PC's pairing token in a private text file outside the repository. Preview with:
+
+```powershell
+python -m wowsync.pull --install 'C:\Program Files (x86)\World of Warcraft' --profile _forever_ --source 'http://desktop:8765' --token-file "$env:LOCALAPPDATA\WoWSync\primary-token.txt" --prefer-source
+```
+
+Add `--apply` to perform the pull after backup. `--prefer-source` selects source versions of conflicts and local edits as well as incoming files. It still preserves machine-local config keys, never selects account identity, and never propagates deletions. Without `--prefer-source`, only incoming changes are selected. `--report <private-path.json>` saves a summary including the backup ID. The receiving user needs write permission on the game folders; an installation under Program Files may require an elevated PowerShell session.
 
 ### How local settings and conflicts work
 

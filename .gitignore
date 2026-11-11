@@ -12,3 +12,7 @@ WTF/
 Interface/
 *.zip
 *.bak
+connection.json
+*-token.txt
+*.exe
+*.spec
