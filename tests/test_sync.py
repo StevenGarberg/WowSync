@@ -183,6 +183,16 @@ class SyncTests(Fixture):
         with self.assertRaisesRegex(ValueError, 'Duplicate'):
             config_values(b'SET test "1"\nSET TEST "2"\n')
 
+    def test_duplicate_config_does_not_block_other_files(self):
+        self.put(self.b, 'WTF/Config.wtf', 'SET test "1"\nSET TEST "2"\n')
+        self.put(self.b, 'WTF/a.lua', 'safe')
+        plan = self.plan()
+        config = next(e for e in plan['entries'] if e['path'] == 'WTF/Config.wtf')
+        self.assertEqual(config['status'], 'manual-review')
+        self.assertFalse(config['selectable'])
+        self.apply(plan, ['WTF/a.lua'])
+        self.assertEqual(self.a.read('_retail_', 'WTF/a.lua'), b'safe')
+
     def test_partial_write_failure_rolls_back(self):
         self.put(self.b, 'WTF/a.lua', 'a')
         self.put(self.b, 'WTF/b.lua', 'b')

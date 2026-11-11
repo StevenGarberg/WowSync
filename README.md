@@ -55,6 +55,8 @@ Both peers must have the same `_version_` directory name. The parent installatio
 
 `Config.wtf` is merged by CVar, preserving unselected lines. Recognized gameplay CVars can be selected with incoming changes. Hardware settings and unknown CVars require individual opt-in. If you intentionally select one, the UI asks before overriding it. Account identity and locale keys are hidden in previews and never applied by config merging.
 
+If either config file has duplicate setting names or unsupported text encoding, it is marked **manual review** and excluded from selection. Other files in that version can still sync. WoWSync does not guess which duplicate setting you intended or rewrite your original config to fix it.
+
 For ordinary files, the accepted shared hash is the baseline. A source-only change is incoming; a destination-only change stays local. If both differ from the baseline, the preview reports a conflict and leaves it unselected. Choosing a conflict means taking the source file in full. A successful pull records baselines for selected and already-matching entries. Each peer/version has its own baseline. Restore deliberately keeps the previous sync baseline: restored differences require review on the next pull.
 
 WoWSync blocks comparisons and writes when it detects WoW running. Exit the game before syncing and keep it closed until completion. File hashes are rechecked before writes, but an external program opening or changing files during the final write window can still race the operation.

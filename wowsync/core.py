@@ -203,7 +203,10 @@ class Store:
                         raise ValueError('Installation exceeds snapshot limits')
                     entry = {'hash': digest(data), 'size': len(data)}
                     if relative.lower() == 'wtf/config.wtf':
-                        entry['config'] = config_values(data)
+                        try:
+                            entry['config'] = config_values(data)
+                        except (ValueError, UnicodeError):
+                            entry['configError'] = 'Config.wtf has duplicate keys or unsupported text encoding. Review this file manually; other files can still sync.'
                     files[relative] = entry
         return {'files': files, 'skipped': skipped, 'device': self.settings['device']}
 
@@ -229,7 +232,10 @@ class Store:
                 raise ValueError('Peer snapshot exceeds size limit')
             if path.lower() == 'wtf/config.wtf':
                 config = info.get('config')
-                if not isinstance(config, dict) or any(not isinstance(k, str) or not isinstance(v, str) for k, v in config.items()):
+                if info.get('configError'):
+                    if not isinstance(info['configError'], str):
+                        raise ValueError('Invalid config error metadata')
+                elif not isinstance(config, dict) or any(not isinstance(k, str) or not isinstance(v, str) for k, v in config.items()):
                     raise ValueError('Invalid config metadata')
         local = self.manifest(profile)
         local_cases = {p.casefold(): p for p in local['files']}
@@ -243,6 +249,12 @@ class Store:
             safe_path(self.profile(profile), path)
             left, right = local['files'].get(path), remote['files'].get(path)
             if path.lower() == 'wtf/config.wtf':
+                if (left or {}).get('configError') or (right or {}).get('configError'):
+                    entries.append({'id': path, 'path': path, 'status': 'manual-review',
+                                    'error': 'Config.wtf has duplicate keys or unsupported text encoding. Review it manually; this file cannot be synced safely.',
+                                    'selectable': False, 'size': (right or left)['size'],
+                                    'local': (left or {}).get('hash'), 'remote': (right or {}).get('hash')})
+                    continue
                 lv, rv = (left or {}).get('config', {}), (right or {}).get('config', {})
                 for key in sorted(set(lv) | set(rv)):
                     if not re.fullmatch(r'[a-z0-9_-]+', key) or ('\n' in rv.get(key, '') or '\r' in rv.get(key, '') or '"' in rv.get(key, '')):
@@ -291,6 +303,8 @@ class Store:
     def diff(self, plan_id, entry_id, fetch):
         plan = self.get_plan(plan_id)
         entry = next(e for e in plan['entries'] if e['id'] == entry_id)
+        if entry.get('error'):
+            return entry['error']
         if 'key' in entry:
             if entry['status'] == 'private':
                 return 'Account-specific value is hidden and never synced.'
