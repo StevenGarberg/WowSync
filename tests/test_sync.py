@@ -254,6 +254,21 @@ class HttpTests(Fixture):
             self.request('/api/status', headers={'X-WowSync-Session':'wrong'})
         self.assertEqual(error.exception.code,401)
         error.exception.close()
+
+    def test_file_export_guard_is_bounded_and_refreshed(self):
+        self.put(self.a,'WTF/a.lua','source')
+        peer={'url':self.url,'token':self.a.settings['token']}
+        args={'profile':'_retail_','path':'WTF/a.lua'}
+        with patch('wowsync.server.game_running',return_value=False) as guard:
+            with patch('wowsync.server.time.monotonic',return_value=10):
+                self.assertEqual(peer_request(peer,'/peer/file',args,binary=True),b'source')
+                self.assertEqual(peer_request(peer,'/peer/file',args,binary=True),b'source')
+                self.assertEqual(guard.call_count,1)
+            with patch('wowsync.server.time.monotonic',return_value=11.1):
+                peer_request(peer,'/peer/file',args,binary=True)
+                self.assertEqual(guard.call_count,2)
+                peer_request(peer,'/peer/status')
+                self.assertEqual(guard.call_count,3)
         with self.assertRaises(HTTPError) as error:
             self.request('/peer/status')
         error.exception.close()

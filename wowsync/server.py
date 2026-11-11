@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import secrets
 import threading
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHandler
@@ -35,6 +36,16 @@ def peer_request(peer, endpoint, params=None, binary=False):
 
 def make_handler(store, session):
     lock = threading.RLock()
+    last_game_check = None
+
+    def source_game_running(allow_cached):
+        nonlocal last_game_check
+        now = time.monotonic()
+        if allow_cached and last_game_check and 0 <= now - last_game_check[0] < 1:
+            return last_game_check[1]
+        running = game_running()
+        last_game_check = (now, running)
+        return running
 
     class Handler(BaseHTTPRequestHandler):
         server_version = 'WoWSync/0.1'
@@ -89,7 +100,11 @@ def make_handler(store, session):
                         self.send({'error': 'Source is busy; retry when its current operation finishes.'}, 409)
                         return
                     try:
-                        if game_running():
+                        # tasklist startup costs dominate transfers with thousands
+                        # of tiny addon files. Status/manifest always check fresh;
+                        # individual exports reuse the guard for at most one second.
+                        # Every downloaded file is still verified against preview hashes.
+                        if source_game_running(path == '/peer/file'):
                             raise ValueError('World of Warcraft is running on the source machine. Close it before comparing or syncing.')
                         if path == '/peer/status':
                             self.send({'device': store.settings['device'], 'profiles': store.profiles(), 'protocol': 1})
